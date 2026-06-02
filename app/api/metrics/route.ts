@@ -21,10 +21,11 @@ export async function GET() {
           'unsubscribe_rate',
           'bounce_rate',
           'delivered',
-          'open_unique',
-          'click_unique',
-          'unsubscribe',
-          'bounce',
+          'opens_unique',
+          'clicks_unique',
+          'unsubscribed',
+          'bounced',
+          'recipients',
         ],
         conversion_metric_id: 'ULMNaq',
       },
@@ -53,23 +54,9 @@ export async function GET() {
       attributes?: {
         results?: Array<{
           campaign_id?: string;
-          statistics?: {
-            open_rate?: number;
-            click_rate?: number;
-            unsubscribe_rate?: number;
-            bounce_rate?: number;
-            delivered?: number;
-            open_unique?: number;
-            click_unique?: number;
-            unsubscribe?: number;
-            bounce?: number;
-          };
+          statistics?: Record<string, number>;
         }>;
-        overview?: {
-          total_delivered?: number;
-          average_open_rate?: number;
-          average_click_rate?: number;
-        };
+        overview?: Record<string, number>;
       };
     };
   };
@@ -78,4 +65,4 @@ export async function GET() {
     campaigns: data.data?.attributes?.results || [],
     overview: data.data?.attributes?.overview || {},
   });
-                             }
+}
