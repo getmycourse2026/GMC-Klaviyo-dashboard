@@ -26,7 +26,6 @@ export async function GET() {
           'bounced',
           'recipients',
         ],
-        conversion_metric_id: 'ULMNaq',
       },
     },
   });
@@ -42,6 +41,10 @@ export async function GET() {
     body,
     cache: 'no-store',
   });
+
+  if (res.status === 429) {
+    return NextResponse.json({ error: 'Rate limited. Try again in a minute.', campaigns: [], rateLimited: true }, { status: 200 });
+  }
 
   if (!res.ok) {
     const errText = await res.text();
@@ -64,4 +67,4 @@ export async function GET() {
     campaigns: data.data?.attributes?.results || [],
     overview: data.data?.attributes?.overview || {},
   });
-}
+          }
