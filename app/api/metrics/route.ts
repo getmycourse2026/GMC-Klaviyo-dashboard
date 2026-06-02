@@ -23,7 +23,6 @@ export async function GET() {
           'delivered',
           'opens_unique',
           'clicks_unique',
-          'unsubscribes',
           'bounced',
           'recipients',
         ],
@@ -34,3 +33,35 @@ export async function GET() {
 
   const res = await fetch('https://a.klaviyo.com/api/campaign-values-reports/', {
     method: 'POST',
+    headers: {
+      Authorization: `Klaviyo-API-Key ${apiKey}`,
+      revision: '2024-10-15',
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body,
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return NextResponse.json({ error: errText, campaigns: [] }, { status: 200 });
+  }
+
+  const data = await res.json() as {
+    data?: {
+      attributes?: {
+        results?: Array<{
+          campaign_id?: string;
+          statistics?: Record<string, number>;
+        }>;
+        overview?: Record<string, number>;
+      };
+    };
+  };
+
+  return NextResponse.json({
+    campaigns: data.data?.attributes?.results || [],
+    overview: data.data?.attributes?.overview || {},
+  });
+}
