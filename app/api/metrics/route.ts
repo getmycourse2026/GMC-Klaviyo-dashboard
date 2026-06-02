@@ -12,26 +12,21 @@ export async function GET() {
   };
 
   try {
-    // Fetch campaign values report (last 90 days)
     const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - 90);
     const startStr = start.toISOString().split('T')[0];
     const endStr = now.toISOString().split('T')[0];
 
-    const reportRes = await fetch('https://a.klaviyo.com/api/campaign-values-reports/query', {
+    const reportRes = await fetch('https://a.klaviyo.com/api/reporting/campaign-values-reports/', {
       method: 'POST',
       headers,
       body: JSON.stringify({
         data: {
           type: 'campaign-values-report',
           attributes: {
-            timeframe: {
-              start: startStr,
-              end: endStr,
-            },
-            conversion_metric_id: '',
-            filter: 'equals(messages.channel,"email")',
+            timeframe: { start: startStr, end: endStr },
+            conversion_metric_id: null,
           },
         },
       }),
@@ -40,7 +35,6 @@ export async function GET() {
 
     if (!reportRes.ok) {
       const errText = await reportRes.text();
-      // Fall back to basic stats if report fails
       return NextResponse.json({ error: errText, campaigns: [] }, { status: 200 });
     }
 
@@ -60,8 +54,6 @@ export async function GET() {
               unsubscribe?: number;
               bounce?: number;
               revenue?: number;
-              conversion_rate?: number;
-              conversion_value?: number;
             };
           }>;
           overview?: {
@@ -76,7 +68,6 @@ export async function GET() {
 
     const results = reportData.data?.attributes?.results || [];
     const overview = reportData.data?.attributes?.overview || {};
-
     return NextResponse.json({ campaigns: results, overview });
   } catch (e) {
     return NextResponse.json({ error: String(e), campaigns: [] }, { status: 200 });
