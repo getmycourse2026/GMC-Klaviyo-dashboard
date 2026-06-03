@@ -11,12 +11,12 @@ export async function GET() {
     'Content-Type': 'application/json',
   };
 
-  // Step 1: Fetch all metrics (with pagination) to find conversion metric ID
+  // Step 1: Fetch all metrics (paginated) to find "Placed Order" for revenue conversion
   let conversionMetricId: string | null = null;
   try {
     let nextUrl: string | null = 'https://a.klaviyo.com/api/metrics/';
     const allMetrics: Array<{ id: string; name: string }> = [];
-    while (nextUrl && allMetrics.length < 200) {
+    while (nextUrl && allMetrics.length < 300) {
       const mRes = await fetch(nextUrl, { headers: h, cache: 'no-store' });
       if (!mRes.ok) break;
       const mData = await mRes.json() as {
@@ -28,7 +28,7 @@ export async function GET() {
       }
       nextUrl = mData.links?.next ?? null;
     }
-    const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Viewed Product', 'Received Email'];
+    const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Received Email'];
     for (const name of preferred) {
       const found = allMetrics.find((m) => m.name === name);
       if (found) { conversionMetricId = found.id; break; }
@@ -46,7 +46,7 @@ export async function GET() {
   const start = new Date(now);
   start.setDate(start.getDate() - 90);
 
-  // Valid statistics for campaign-values-reports (no 'revenue' — that's a conversion metric)
+  // Note: 'conversion_value' is the revenue stat when conversion_metric_id is set
   const statistics = [
     'open_rate',
     'click_rate',
@@ -54,6 +54,8 @@ export async function GET() {
     'delivered',
     'opens_unique',
     'clicks_unique',
+    'conversion_rate',
+    'conversion_value',
   ];
 
   const body = JSON.stringify({
@@ -89,28 +91,35 @@ export async function GET() {
   const data = await res.json() as {
     data?: {
       attributes?: {
-        results?: Array<{ campaign_id?: string; statistics?: Record<string, number> }>;
+        results?: Array<{
+          groupings?: { campaign_id?: string; send_channel?: string; campaign_message_id?: string };
+          statistics?: Record<string, number>;
+        }>;
         overview?: Record<string, number>;
       };
     };
   };
 
-  const results = data.data?.attributes?.results || [];
+  const rawResults = data.data?.attributes?.results || [];
 
-  // Normalise field names (API returns opens_unique / clicks_unique)
-  const normalised = results.map((r) => ({
-    ...r,
-    statistics: r.statistics
-      ? {
-          ...r.statistics,
-          open_unique: r.statistics.opens_unique ?? r.statistics.open_unique ?? 0,
-          click_unique: r.statistics.clicks_unique ?? r.statistics.click_unique ?? 0,
-        }
-      : r.statistics,
-  }));
+  // Flatten groupings.campaign_id to top-level campaign_id
+  const campaigns = rawResults
+    .filter((r) => r.groupings?.send_channel === 'email' && r.groupings?.campaign_id)
+    .map((r) => ({
+      campaign_id: r.groupings!.campaign_id!,
+      statistics: r.statistics
+        ? {
+            ...r.statistics,
+            open_unique: r.statistics.opens_unique ?? r.statistics.open_unique ?? 0,
+            click_unique: r.statistics.clicks_unique ?? r.statistics.click_unique ?? 0,
+            // conversion_value is the revenue attributed to this campaign
+            revenue: r.statistics.conversion_value ?? 0,
+          }
+        : {},
+    }));
 
   return NextResponse.json({
-    campaigns: normalised,
+    campaigns,
     overview: data.data?.attributes?.overview || {},
     conversionMetricId,
   });
