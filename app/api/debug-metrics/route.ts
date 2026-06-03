@@ -10,20 +10,23 @@ export async function GET() {
     Accept: 'application/json',
   };
 
-  // Try different URL formats for metrics list
-  const url1 = 'https://a.klaviyo.com/api/metrics/';
-  const url2 = 'https://a.klaviyo.com/api/metrics/?page%5Bsize%5D=50';
+  // Fetch all metrics with pagination
+  let nextUrl: string | null = 'https://a.klaviyo.com/api/metrics/';
+  const allMetrics: Array<{ id: string; name: string }> = [];
+  while (nextUrl && allMetrics.length < 300) {
+    const mRes = await fetch(nextUrl, { headers: h, cache: 'no-store' });
+    if (!mRes.ok) {
+      return NextResponse.json({ error: 'Metrics fetch failed', status: mRes.status });
+    }
+    const mData = await mRes.json() as {
+      data?: Array<{ id: string; attributes?: { name?: string } }>;
+      links?: { next?: string | null };
+    };
+    for (const m of mData.data || []) {
+      allMetrics.push({ id: m.id, name: m.attributes?.name ?? '' });
+    }
+    nextUrl = mData.links?.next ?? null;
+  }
 
-  const r1 = await fetch(url1, { headers: h, cache: 'no-store' });
-  const s1 = r1.status;
-  const t1 = await r1.text();
-
-  const r2 = await fetch(url2, { headers: h, cache: 'no-store' });
-  const s2 = r2.status;
-  const t2 = await r2.text();
-
-  return NextResponse.json({
-    url1: { status: s1, body: t1.substring(0, 1500) },
-    url2: { status: s2, body: t2.substring(0, 1500) },
-  });
+  return NextResponse.json({ total: allMetrics.length, metrics: allMetrics });
 }
