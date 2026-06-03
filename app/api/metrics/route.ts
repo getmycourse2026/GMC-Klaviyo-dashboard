@@ -11,7 +11,7 @@ export async function GET() {
     'Content-Type': 'application/json',
   };
 
-  // Step 1: Fetch all metrics (paginated) to find "Placed Order" for revenue conversion
+  // Step 1: Fetch all metrics (paginated) to find conversion metric ID
   let conversionMetricId: string | null = null;
   try {
     let nextUrl: string | null = 'https://a.klaviyo.com/api/metrics/';
@@ -46,19 +46,7 @@ export async function GET() {
   const start = new Date(now);
   start.setDate(start.getDate() - 90);
 
-  // Note: 'conversion_value' is the revenue stat when conversion_metric_id is set
-  const statistics = [
-    'open_rate',
-    'click_rate',
-    'unsubscribe_rate',
-    'delivered',
-    'opens_unique',
-    'clicks_unique',
-    'conversion_rate',
-    'conversion_value',
-  ];
-
-  const body = JSON.stringify({
+  const makeBody = (includeRevenue: boolean) => JSON.stringify({
     data: {
       type: 'campaign-values-report',
       attributes: {
@@ -67,17 +55,30 @@ export async function GET() {
           end: now.toISOString().split('T')[0],
         },
         conversion_metric_id: conversionMetricId,
-        statistics,
+        statistics: [
+          'open_rate',
+          'click_rate',
+          'unsubscribe_rate',
+          'delivered',
+          'opens_unique',
+          'clicks_unique',
+          ...(includeRevenue ? ['conversion_rate', 'conversion_value'] : []),
+        ],
       },
     },
   });
 
-  const res = await fetch('https://a.klaviyo.com/api/campaign-values-reports/', {
-    method: 'POST',
-    headers: h,
-    body,
-    cache: 'no-store',
+  // Try with revenue stats first, fall back without if unsupported
+  let res = await fetch('https://a.klaviyo.com/api/campaign-values-reports/', {
+    method: 'POST', headers: h, body: makeBody(true), cache: 'no-store',
   });
+
+  if (!res.ok && res.status === 400) {
+    // Retry without revenue — metric may not support conversion value queries
+    res = await fetch('https://a.klaviyo.com/api/campaign-values-reports/', {
+      method: 'POST', headers: h, body: makeBody(false), cache: 'no-store',
+    });
+  }
 
   if (res.status === 429) {
     return NextResponse.json({ error: 'Rate limited', campaigns: [], rateLimited: true }, { status: 200 });
@@ -102,7 +103,7 @@ export async function GET() {
 
   const rawResults = data.data?.attributes?.results || [];
 
-  // Flatten groupings.campaign_id to top-level campaign_id
+  // Flatten groupings.campaign_id to top-level, normalise field names
   const campaigns = rawResults
     .filter((r) => r.groupings?.send_channel === 'email' && r.groupings?.campaign_id)
     .map((r) => ({
@@ -112,7 +113,7 @@ export async function GET() {
             ...r.statistics,
             open_unique: r.statistics.opens_unique ?? r.statistics.open_unique ?? 0,
             click_unique: r.statistics.clicks_unique ?? r.statistics.click_unique ?? 0,
-            // conversion_value is the revenue attributed to this campaign
+            // conversion_value is revenue when metric supports it
             revenue: r.statistics.conversion_value ?? 0,
           }
         : {},
