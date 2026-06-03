@@ -11,30 +11,34 @@ export async function GET() {
     'Content-Type': 'application/json',
   };
 
-  // Step 1: Fetch available metrics to find conversion metric ID (Placed Order / Revenue)
+  // Step 1: Fetch available metrics to find conversion metric ID (e.g. Placed Order for revenue)
   let conversionMetricId: string | null = null;
+  let allMetricNames: string[] = [];
   try {
-    const mRes = await fetch('https://a.klaviyo.com/api/metrics/?page[size]=100', {
+    const mRes = await fetch('https://a.klaviyo.com/api/metrics/', {
       headers: h,
       cache: 'no-store',
     });
     if (mRes.ok) {
       const mData = await mRes.json() as { data?: Array<{ id: string; attributes?: { name?: string } }> };
       const metrics = mData.data || [];
-      // Prefer "Placed Order", then "Ordered Product", then "Active on Site", then first metric
-      const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Received Email'];
+      allMetricNames = metrics.map((m) => m.attributes?.name ?? '');
+      // Prefer "Placed Order" for revenue, then other common conversion metrics
+      const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Viewed Product', 'Received Email'];
       for (const name of preferred) {
         const found = metrics.find((m) => m.attributes?.name === name);
         if (found) { conversionMetricId = found.id; break; }
       }
-      if (!conversionMetricId && metrics.length > 0) {
-        conversionMetricId = metrics[0].id;
+      // Fallback: use first non-SMS metric
+      if (!conversionMetricId) {
+        const fallback = metrics.find((m) => !m.attributes?.name?.includes('SMS'));
+        if (fallback) conversionMetricId = fallback.id;
       }
     }
   } catch (_) { /* ignore */ }
 
   if (!conversionMetricId) {
-    return NextResponse.json({ error: 'No metrics found in account', campaigns: [] }, { status: 200 });
+    return NextResponse.json({ error: 'No metrics found in account', campaigns: [], allMetricNames }, { status: 200 });
   }
 
   const now = new Date();
@@ -78,7 +82,7 @@ export async function GET() {
 
   if (!res.ok) {
     const e = await res.text();
-    return NextResponse.json({ error: e, campaigns: [], conversionMetricId }, { status: 200 });
+    return NextResponse.json({ error: e, campaigns: [], conversionMetricId, allMetricNames }, { status: 200 });
   }
 
   const data = await res.json() as {
@@ -92,7 +96,7 @@ export async function GET() {
 
   const results = data.data?.attributes?.results || [];
 
-  // Normalise field names
+  // Normalise field names (API returns opens_unique / clicks_unique)
   const normalised = results.map((r) => ({
     ...r,
     statistics: r.statistics
