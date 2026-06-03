@@ -14,20 +14,21 @@ export async function GET() {
   // Step 1: Fetch available metrics to find conversion metric ID
   let conversionMetricId: string | null = null;
   try {
-    const mRes = await fetch('https://a.klaviyo.com/api/metrics/?page[size]=100', {
+    const mRes = await fetch('https://a.klaviyo.com/api/metrics/', {
       headers: h,
       cache: 'no-store',
     });
     if (mRes.ok) {
       const mData = await mRes.json() as { data?: Array<{ id: string; attributes?: { name?: string } }> };
       const metrics = mData.data || [];
-      const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Received Email'];
+      const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Viewed Product', 'Received Email'];
       for (const name of preferred) {
         const found = metrics.find((m) => m.attributes?.name === name);
         if (found) { conversionMetricId = found.id; break; }
       }
-      if (!conversionMetricId && metrics.length > 0) {
-        conversionMetricId = metrics[0].id;
+      if (!conversionMetricId) {
+        const fallback = metrics.find((m) => !m.attributes?.name?.includes('SMS'));
+        if (fallback) conversionMetricId = fallback.id;
       }
     }
   } catch (_) { /* ignore */ }
