@@ -11,25 +11,30 @@ export async function GET() {
     'Content-Type': 'application/json',
   };
 
-  // Step 1: Fetch available metrics to find conversion metric ID
+  // Step 1: Fetch all metrics (with pagination) to find conversion metric ID
   let conversionMetricId: string | null = null;
   try {
-    const mRes = await fetch('https://a.klaviyo.com/api/metrics/', {
-      headers: h,
-      cache: 'no-store',
-    });
-    if (mRes.ok) {
-      const mData = await mRes.json() as { data?: Array<{ id: string; attributes?: { name?: string } }> };
-      const metrics = mData.data || [];
-      const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Viewed Product', 'Received Email'];
-      for (const name of preferred) {
-        const found = metrics.find((m) => m.attributes?.name === name);
-        if (found) { conversionMetricId = found.id; break; }
+    let nextUrl: string | null = 'https://a.klaviyo.com/api/metrics/';
+    const allMetrics: Array<{ id: string; name: string }> = [];
+    while (nextUrl && allMetrics.length < 200) {
+      const mRes = await fetch(nextUrl, { headers: h, cache: 'no-store' });
+      if (!mRes.ok) break;
+      const mData = await mRes.json() as {
+        data?: Array<{ id: string; attributes?: { name?: string } }>;
+        links?: { next?: string | null };
+      };
+      for (const m of mData.data || []) {
+        allMetrics.push({ id: m.id, name: m.attributes?.name ?? '' });
       }
-      if (!conversionMetricId) {
-        const fallback = metrics.find((m) => !m.attributes?.name?.includes('SMS'));
-        if (fallback) conversionMetricId = fallback.id;
-      }
+      nextUrl = mData.links?.next ?? null;
+    }
+    const preferred = ['Placed Order', 'Ordered Product', 'Active on Site', 'Viewed Product', 'Received Email'];
+    for (const name of preferred) {
+      const found = allMetrics.find((m) => m.name === name);
+      if (found) { conversionMetricId = found.id; break; }
+    }
+    if (!conversionMetricId && allMetrics.length > 0) {
+      conversionMetricId = allMetrics[0].id;
     }
   } catch (_) { /* ignore */ }
 
@@ -57,7 +62,6 @@ export async function GET() {
           'delivered',
           'opens_unique',
           'clicks_unique',
-          'revenue',
         ],
       },
     },
