@@ -138,8 +138,8 @@ const flowAvgClickRate = flowAggDelivered > 0 ? flowAggClicks / flowAggDelivered
           <MetricStatCard label="Campaign Click Rate (90d)" value={hasMetrics ? fmtPct(avgClickRate) : '—'} icon={<MousePointer size={20} />} color="#22c55e" sub={hasMetrics ? `${fmtNum(aggClicks)} unique clicks` : 'Loading…'} />
           <MetricStatCard label="Campaign Revenue (90d)" value={hasMetrics ? fmtAUD(aggRevenue || metricsOverview.total_revenue) : '—'} icon={<DollarSign size={20} />} color="#f97316" sub={hasMetrics ? `${metrics.length} campaigns` : 'Loading…'} />
           <MetricStatCard label="Flow Open Rate (90d)" value={hasFlowMetrics ? fmtPct(flowAvgOpenRate) : '—'} icon={<BarChart2 size={20} />} color="#a855f7" sub={hasFlowMetrics ? `${fmtNum(flowAggDelivered)} delivered` : 'Loading…'} />
-          <MetricStatCard label="Flow Click Rate (90d)" value={hasFlowMetrics ? fmtPct(flowAvgClickRate) : '—'} icon={<MousePointer size={20} />
-<MetricStatCard label="Flow Revenue (90d)" value={hasFlowMetrics ? fmtAUD(flowAggRevenue) : '—'} icon={<DollarSign size={20} />} color="#f59e0b" sub={hasFlowMetrics ? `${flowMetrics.length} flows` : 'Loading…'} />} color="#38bdf8" sub={hasFlowMetrics ? `${fmtNum(flowAggClicks)} unique clicks` : 'Loading…'} />
+          <MetricStatCard label="Flow Click Rate (90d)" value={hasFlowMetrics ? fmtPct(flowAvgClickRate) : '—'} icon={<MousePointer size={20} />} color="#38bdf8" sub={hasFlowMetrics ? `${fmtNum(flowAggClicks)} unique clicks` : 'Loading…'} />
+<MetricStatCard label="Flow Revenue (90d)" value={hasFlowMetrics ? fmtAUD(flowAggRevenue) : '—'} icon={<DollarSign size={20} />} color="#f59e0b" sub={hasFlowMetrics ? `${flowMetrics.length} flows` : 'Loading…'} />
           <MetricStatCard label="Total Delivered (90d)" value={fmtNum((aggDelivered || 0) + (flowAggDelivered || 0))} icon={<Send size={20} />} color="#34d399" sub="Campaigns + Flows" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
